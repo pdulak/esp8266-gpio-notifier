@@ -19,6 +19,7 @@ const char HTML_header[] = R"=====(
 
 const char HTML_body[] = R"=====(
   <h3>Pin statuses:</h3>
+  <input type="button" class="pure-button button-primary" value="Refresh" onclick="window.location.reload()">
 )=====";
 
 const char HTML_footer[] = R"=====(
@@ -52,5 +53,8 @@ const char HTML_form_footer[] = R"=====(
 )=====";
 
 const char HTML_saved_button[] = R"=====(
-  <a class="pure-button button-success" href="/" style="width: 100%; margin-top: 20px">Information saved - click here to return to the homepage</a>
+  <a class="pure-button button-success" href="/" style="width: 100%; margin-top: 20px" id="success-button">Information saved - click here to return to the homepage</a>
+  <script>
+    setTimeout(function(){ document.getElementById('success-button').click() }, 2000);
+  </script>
 )=====";

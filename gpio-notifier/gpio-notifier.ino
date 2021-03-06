@@ -20,12 +20,13 @@ WiFiManager wifiManager;
  * PINS
  */
 int pin_array[] = { D1, D2, D5, D6, D7 };               // pin reference
-int pin_states[] = { 0, 0, 0, 0, 0 };                   // last state of the pin
-int pin_states_change_unhandled[] = { 0, 0, 0, 0, 0 };  // state change is already handled or not?
+int pin_state[] = { 0, 0, 0, 0, 0 };                   // last state of the pin
+int pin_state_change_unhandled[] = { 0, 0, 0, 0, 0 };  // state change is already handled or not?
+int pin_handle_state[] = { -1, -1, -1, -1, -1 };        // in what state to handle? -1 - any state, 1 - only if pin is in HIGH, 0 - only if pin is in LOW
 unsigned long pin_last_change[] { 0, 0, 0, 0, 0 };      // time of last state change
 unsigned long pin_handle_after[] { 0, 0, 0, 0, 0 };     // time after which to handle the pin
-String pin_handle_urls[] = { "", "", "", "", "" };      // send notification to these urls
-String pin_names[] = { "D1", "D2", "D5", "D6", "D7" };  // pin names on the NodeMCU board
+String pin_handle_url[] = { "", "", "", "", "" };      // send notification to these urls
+String pin_name[] = { "D1", "D2", "D5", "D6", "D7" };  // pin names on the NodeMCU board
 /* 
  *  HTML Server
  */
@@ -89,23 +90,32 @@ void handle_saved() {
 void handle_form() {
   for (int i = 0; i < PIN_COUNT; i++) {
     
-    if ( server.hasArg( pin_names[i] ) && server.arg( pin_names[i] ) != NULL ) {
-      pin_handle_after[i] = server.arg( pin_names[i] ).toInt();
-      Serial.println("Field " + pin_names[i] + " filled with: " + pin_handle_after[i] );
+    if ( server.hasArg( pin_name[i] ) && server.arg( pin_name[i] ) != NULL ) {
+      pin_handle_after[i] = server.arg( pin_name[i] ).toInt();
+      Serial.println("Field " + pin_name[i] + " filled with: " + pin_handle_after[i] );
     } else {
       pin_handle_after[i] = 0;
-      Serial.println("Field " + pin_names[i] + " not found or null");
+      Serial.println("Field " + pin_name[i] + " not found or null");
     }
-    write_to_file(pin_names[i] + "_handler_time", server.arg( pin_names[i] ));
+    write_to_file(pin_name[i] + "_handler_time", String(pin_handle_after[i]) );
 
-    if ( server.hasArg( pin_names[i] + "_u" ) && server.arg( pin_names[i] + "_u" ) != NULL ) {
-      pin_handle_urls[i] = server.arg( pin_names[i] + "_u" );
-      Serial.println("Field " + pin_names[i] + "_u filled with: " + pin_handle_urls[i] );
+    if ( server.hasArg( pin_name[i] + "_h" ) && server.arg( pin_name[i] + "_h" ) != NULL ) {
+      pin_handle_state[i] = server.arg( pin_name[i] + "_h" ).toInt();
+      Serial.println("Field " + pin_name[i] + "_h filled with: " + pin_handle_state[i] );
     } else {
-      pin_handle_urls[i] = "";
-      Serial.println("Field " + pin_names[i] + "_u not found or null");
+      pin_handle_state[i] = -1;
+      Serial.println("Field " + pin_name[i] + "_h not found or null");
     }
-    write_to_file(pin_names[i] + "_handler_url", pin_handle_urls[i] );
+    write_to_file(pin_name[i] + "_handler_state", String(pin_handle_state[i]) );
+
+    if ( server.hasArg( pin_name[i] + "_u" ) && server.arg( pin_name[i] + "_u" ) != NULL ) {
+      pin_handle_url[i] = server.arg( pin_name[i] + "_u" );
+      Serial.println("Field " + pin_name[i] + "_u filled with: " + pin_handle_url[i] );
+    } else {
+      pin_handle_url[i] = ".";
+      Serial.println("Field " + pin_name[i] + "_u not found or null");
+    }
+    write_to_file(pin_name[i] + "_handler_url", pin_handle_url[i] );
     
   }
   
@@ -134,11 +144,31 @@ String all_fieldsets() {
 }
 
 String pin_fieldset(int i) {
-  String this_fieldset = "<fieldset><legend>" + pin_names[i] + "</legend>";
-  this_fieldset += "<label for=\"" + pin_names[i] + "\">handle " + pin_names[i] + " after (milliseconds): </label>";
-  this_fieldset += "<input type=\"number\" name=\"" + pin_names[i] + "\" value=\"" + pin_handle_after[i] + "\" min=\"0\" max=\"3600000\">";
-  this_fieldset += "<label for=\"" + pin_names[i] + "_u\">Notification URL: </label>";
-  this_fieldset += "<input type=\"text\" name=\"" + pin_names[i] + "_u\" value=\"" + pin_handle_urls[i] + "\" maxlength=\"500\" size=\"100\">";
+  String this_fieldset = "<fieldset><legend>" + pin_name[i] + "</legend>";
+  
+  // handle time
+  this_fieldset += "<label for=\"" + pin_name[i] + "\">handle " + pin_name[i] + " after (milliseconds): </label>";
+  this_fieldset += "<input type=\"number\" name=\"" + pin_name[i] + "\" value=\"" + pin_handle_after[i] + "\" min=\"0\" max=\"3600000\">";
+
+  // handle state
+  this_fieldset += "<label for=\"" + pin_name[i] + "_h\">handle " + pin_name[i] + " if in state: </label>";
+  this_fieldset += "<select name=\"" + pin_name[i] + "_h\" >";
+    this_fieldset += "<option value=\"-1\" ";
+      if ( (pin_handle_state[i] != 1) && (pin_handle_state[i] != 0) ) this_fieldset += " SELECTED "; 
+    this_fieldset += " >any state</option>";
+    this_fieldset += "<option value=\"1\" ";
+      if (pin_handle_state[i] == 1) this_fieldset += " SELECTED "; 
+    this_fieldset += ">high (1)</option>";
+    this_fieldset += "<option value=\"0\" ";
+      if (pin_handle_state[i] == 0) this_fieldset += " SELECTED "; 
+    this_fieldset += ">low (0)</option>";
+  this_fieldset += "</select>";
+
+  // handle URL
+  this_fieldset += "<label for=\"" + pin_name[i] + "_u\">Notification URL: </label>";
+  this_fieldset += "<input type=\"text\" name=\"" + pin_name[i] + "_u\" value=\"";
+  if ( pin_handle_url[i] != ".") this_fieldset += pin_handle_url[i];
+  this_fieldset += "\" maxlength=\"500\" size=\"100\">";
   this_fieldset += "</fieldset>";
   
   return this_fieldset;
@@ -154,7 +184,7 @@ void initialize_pins() {
   // set all pins in use to input type and set initial state
   for (int i = 0; i < PIN_COUNT; i++) {
     pinMode(pin_array[i], INPUT);
-    pin_states[i] = digitalRead(pin_array[i]);
+    pin_state[i] = digitalRead(pin_array[i]);
     pin_last_change[i] = millis();
   }
 }
@@ -162,29 +192,33 @@ void initialize_pins() {
 String pin_state_all() {
   String all_statuses;
   for (int i = 0; i < PIN_COUNT; i++) {
-    all_statuses += pin_state(i);
+    all_statuses += pin_state_info(i);
   }
   return all_statuses;
 }
 
-String pin_state(int i) {
-  String this_pin_state = "<div class=\"pin-status\">State of " + pin_names[i] 
-    + ": <span class=\'pin-state\'>" + pin_states[i] 
+String pin_state_info(int i) {
+  String this_pin_state = "<div class=\"pin-status\">State of " + pin_name[i] 
+    + ": <span class=\'pin-state\'>" + pin_state[i] 
     + "</span>; last change on CPU time: " + TimeShowFormatted(pin_last_change[i]) 
     + " (" + TimeShowFormatted( millis() - pin_last_change[i] ) + " ago)";
 
-  if ( pin_states_change_unhandled[i] == 1) {
+  if ( pin_state_change_unhandled[i] == 1) {
     this_pin_state += " (not handled)";
   } else {
     this_pin_state += " (handled)";
   }
 
-  if ( pin_handle_urls[i] == "" ) {
+  if (( pin_handle_url[i] == "" ) || ( pin_handle_url[i] == "." )) {
     this_pin_state += "<span class=\"comment\">Empty URL, will not handle</span>";
   } else {
-    this_pin_state += "<span class=\"comment\">Handle change after: ";
+    this_pin_state += "<span class=\"comment\">Handle on state: ";
+      if (pin_handle_state[i] == 1) this_pin_state += " HIGH"; 
+      else if (pin_handle_state[i] == 0) this_pin_state += " LOW";
+      else  this_pin_state += " ANY";
+    this_pin_state += "; after: ";
     this_pin_state += pin_handle_after[i];
-    this_pin_state += " milliseconds by sending GET to: " + pin_handle_urls[i] + "</span>";
+    this_pin_state += " milliseconds by sending GET to: " + pin_handle_url[i] + "</span>";
   }
     
   this_pin_state += "</div>";
@@ -203,17 +237,17 @@ void read_pin_statuses() {
 
 
     // check if state changed
-    if ( this_pin_state != pin_states[i] ) {
+    if ( this_pin_state != pin_state[i] ) {
       time_elapsed = current_millis - pin_last_change[i];
-      Serial.print("State of " + pin_names[i] + ": ");
+      Serial.print("State of " + pin_name[i] + ": ");
       Serial.print( this_pin_state );
       Serial.print(" <- state changed, was in previous state for: ");
       Serial.print( time_elapsed );
       Serial.print(" millis.");
       Serial.println();
-      pin_states[i] = this_pin_state;       // save current state
+      pin_state[i] = this_pin_state;       // save current state
       pin_last_change[i] = current_millis;  // save time of state change
-      pin_states_change_unhandled[i] = 1;   // set change as unhandled
+      pin_state_change_unhandled[i] = 1;   // set change as unhandled
       
     } 
   }
@@ -223,7 +257,18 @@ void handle_pin_changes() {
   unsigned long current_millis = millis();
   
   for (int i = 0; i < PIN_COUNT; i++) {
-    if (pin_states_change_unhandled[i] == 1) {
+
+    // check if we should handle this state
+    if ( 
+         (pin_state_change_unhandled[i] == 1)
+         && ((pin_handle_state[i] == 1) || (pin_handle_state[i] == 0)) 
+         && (pin_handle_state[i] != pin_state[i]) 
+       ) {
+      pin_state_change_unhandled[i] = 0;
+      Serial.println("'Empty' handle - state of pin is not the same as handled state, removing 'unhandled' flag.");
+    }
+    
+    if (pin_state_change_unhandled[i] == 1) {
       
       // check if millis counter reached limit and returned to zero
       if (pin_last_change[i] > current_millis) {
@@ -232,9 +277,9 @@ void handle_pin_changes() {
 
       // check if should handle now
       if ( (current_millis - pin_last_change[i]) > pin_handle_after[i] ) {
-        Serial.println("Time to handle for " + pin_names[i] + " reached, handling...");
-        send_notification( pin_handle_urls[i] );
-        pin_states_change_unhandled[i] = 0;
+        Serial.println("Time to handle for " + pin_name[i] + " reached, handling...");
+        send_notification( pin_handle_url[i] );
+        pin_state_change_unhandled[i] = 0;
       }
       
     }
@@ -243,7 +288,7 @@ void handle_pin_changes() {
 
 void send_notification( String url ) {
   Serial.println("Sending notification to: " + url);
-  if (url != "") {
+  if ((url != "") && (url != ".")) {
     HTTPClient http;
 
     http.begin(url);
@@ -271,12 +316,14 @@ void initialize_handler() {
   SPIFFS.begin();
 
   // read handler values for all pins
+  Serial.println("======================");
   Serial.println("Handler initialization");
+  Serial.println("======================");
 
   for (int i = 0; i < PIN_COUNT; i++) {
-    Serial.println("Reading configuration for " + pin_names[i]);
+    Serial.println("Reading configuration for " + pin_name[i]);
     
-    buf = load_from_file( pin_names[i] + "_handler_time" );
+    buf = load_from_file( pin_name[i] + "_handler_time" );
     if (buf == "") {
       pin_handle_after[i] = 0;
     } else {
@@ -286,9 +333,19 @@ void initialize_handler() {
     Serial.print("Handle time set to: ");
     Serial.println( pin_handle_after[i] );
 
-    pin_handle_urls[i] = load_from_file( pin_names[i] + "_handler_url" );
+    buf = load_from_file( pin_name[i] + "_handler_state" );
+    if (buf == "") {
+      pin_handle_state[i] = -1;
+    } else {
+      pin_handle_state[i] = buf.toInt();
+    }
+
+    Serial.print("Handle state set to: ");
+    Serial.println( pin_handle_state[i] );
+
+    pin_handle_url[i] = load_from_file( pin_name[i] + "_handler_url" );
     
-    Serial.println("Handle URL set to: " + pin_handle_urls[i]);
+    Serial.println("Handle URL set to: " + pin_handle_url[i]);
   }
   
 }
