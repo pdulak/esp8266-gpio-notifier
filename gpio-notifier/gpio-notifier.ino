@@ -1,4 +1,4 @@
-#include "FS.h"
+#include "LittleFS.h"
 #include <ESP8266WiFi.h> 
 #include <WiFiManager.h>
 #include <ESP8266WebServer.h>
@@ -313,7 +313,7 @@ void send_notification( String url ) {
 
 void initialize_handler() {
   String buf;
-  SPIFFS.begin();
+  LittleFS.begin();
 
   // read handler values for all pins
   Serial.println("======================");
@@ -359,7 +359,7 @@ void initialize_handler() {
 String load_from_file(String file_name) {
   String result = "";
   
-  File this_file = SPIFFS.open(file_name, "r");
+  File this_file = LittleFS.open(file_name, "r");
   if (!this_file) {
     return result;
   }
@@ -376,7 +376,7 @@ String load_from_file(String file_name) {
 
 bool write_to_file(String file_name, String contents) {
   
-  File this_file = SPIFFS.open(file_name, "w");
+  File this_file = LittleFS.open(file_name, "w");
   if (!this_file) {
     return false;
   }
