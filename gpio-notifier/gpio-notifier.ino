@@ -4,8 +4,12 @@
 #include <ESP8266HTTPClient.h>
 
 #include "html_const.h"
+#include "BlinkLed.h"
 
 WiFiManager wifiManager;
+
+// Leds
+BlinkLed led( 3000, 2);
 
 // Wiring of NodeMCU on ESP8266, inputs that are safe to use
 #define D1 5    // GPIO5
@@ -39,7 +43,7 @@ void setup() {
   // start WiFi
   String hostname = "ESP-GPIO-Notifier-" + String(WIFI_getChipId(),HEX);
   wifiManager.setHostname(hostname.c_str());
-  wifiManager.setConfigPortalTimeout(180);
+  wifiManager.setConfigPortalTimeout(120);
   if(!wifiManager.autoConnect()) { 
     Serial.println("failed to connect and hit timeout, restarting in 5 seconds"); 
     delay(5000); 
@@ -60,6 +64,7 @@ void loop() {
   read_pin_statuses();
   handle_pin_changes();
   server.handleClient(); 
+  led.Blink();
 }
 
 /*
