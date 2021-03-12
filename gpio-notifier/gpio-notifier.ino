@@ -1,5 +1,4 @@
 #include "LittleFS.h"
-#include <ESP8266WiFi.h> 
 #include <WiFiManager.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
@@ -38,8 +37,14 @@ void setup() {
   Serial.println("start GPIO notifier");
   
   // start WiFi
-  WiFi.hostname("ESP-gipo-notifier-" + WiFi.macAddress());
-  wifiManager.autoConnect();
+  String hostname = "ESP-GPIO-Notifier-" + String(WIFI_getChipId(),HEX);
+  wifiManager.setHostname(hostname.c_str());
+  wifiManager.setConfigPortalTimeout(180);
+  if(!wifiManager.autoConnect()) { 
+    Serial.println("failed to connect and hit timeout, restarting in 5 seconds"); 
+    delay(5000); 
+    ESP.restart();
+  }
 
   // initialize digital pins, statuses, times and so on
   initialize_pins();
